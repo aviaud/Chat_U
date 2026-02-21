@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleScript v3 Final</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --tg-blue: #24A1DE; --tg-bg: #8ab4d0; --msg-sent: #effdde; --msg-received: #ffffff; --text-color: #222; }
+        body.dark-mode { --tg-bg: #18222d; --msg-sent: #2b5278; --msg-received: #212d3b; --text-color: #fff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--tg-bg); height: 100vh; display: flex; justify-content: center; overflow: hidden; }
+        #app-container { width: 100%; max-width: 500px; display: flex; flex-direction: column; height: 100%; background: rgba(255,255,255,0.1); }
+        header { background: #517da2; color: white; padding: 12px 16px; display: flex; align-items: center; gap: 15px; z-index: 10; }
+        header .info { flex-grow: 1; }
+        #chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .msg-wrapper { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
+        .avatar { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+        .message { max-width: 75%; padding: 8px 12px; border-radius: 12px; font-size: 14.5px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); color: var(--text-color); position: relative; }
+        .received { background: var(--msg-received); border-bottom-left-radius: 2px; }
+        .sent { background: var(--msg-sent); border-bottom-right-radius: 2px; margin-left: auto; }
+        .user-name { font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px; }
+        .img-msg { width: 100%; max-width: 250px; border-radius: 8px; margin-top: 5px; cursor: pointer; }
+        .time { font-size: 10px; color: #888; margin-top: 6px; display: block; opacity: 0.7; }
+        .date-separator { text-align: center; margin: 20px 0 15px; }
+        .date-separator span { background: rgba(0,0,0,0.08); padding: 6px 16px; border-radius: 12px; font-size: 12px; color: #666; font-weight: 500; display: inline-block; }
+        body.dark-mode .date-separator span { background: rgba(255,255,255,0.1); color: #aaa; }
+        #emoji-bar { background: white; padding: 8px; display: flex; gap: 15px; justify-content: center; border-top: 1px solid #eee; }
+        footer { background: white; padding: 10px; display: flex; align-items: center; gap: 10px; }
+        .input-wrapper { background: #f4f4f5; flex: 1; border-radius: 20px; padding: 5px 15px; display: flex; align-items: center; gap: 10px; }
+        input[type="text"] { border: none; background: transparent; flex: 1; outline: none; padding: 8px; }
+        #login-overlay { position: fixed; inset: 0; background: #517da2; display: flex; align-items: center; justify-content: center; z-index: 100; color: white; }
+        .login-box { text-align: center; width: 80%; max-width: 300px; }
+        .login-box input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 10px; border: none; }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <i class="fab fa-telegram-plane" style="font-size: 50px; margin-bottom: 15px;"></i>
+            <h2>TeleScript</h2>
+            <input type="text" id="username-input" placeholder="Tu nombre...">
+            <button onclick="saveUsername()" style="width:100%; padding:12px; border-radius:20px; border:none; background:#24A1DE; color:white; font-weight:bold; cursor:pointer;">ENTRAR</button>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <header>
+            <div class="avatar" id="my-avatar" style="background: #ef7e32;">?</div>
+            <div class="info"><h4 id="display-name">Cargando...</h4><span>en línea</span></div>
+            <i class="fas fa-moon" style="cursor:pointer; margin-right:15px;" onclick="document.body.classList.toggle('dark-mode')"></i>
+            <i class="fas fa-sign-out-alt" style="cursor:pointer;" onclick="logout()"></i>
+        </header>
+
+        <div id="chat-container"></div>
+
+        <div id="emoji-bar">
+            <span style="cursor:pointer" onclick="addEmoji('😊')">😊</span>
+            <span style="cursor:pointer" onclick="addEmoji('😂')">😂</span>
+            <span style="cursor:pointer" onclick="addEmoji('🔥')">🔥</span>
+            <span style="cursor:pointer" onclick="addEmoji('👍')">👍</span>
+            <span style="cursor:pointer" onclick="addEmoji('❤️')">❤️</span>
+        </div>
+
+        <footer>
+            <div class="input-wrapper">
+                <label for="file-input" style="cursor:pointer; color:#888"><i class="fas fa-paperclip"></i></label>
+                <input type="file" id="file-input" accept="image/*" style="display:none" onchange="sendImage(this)">
+                <input type="text" id="msg-input" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') sendText()">
+            </div>
+            <button class="btn-send" onclick="sendText()" style="border:none; background:none; color:#24A1DE; font-size:20px; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+        </footer>
+    </div>
+
+    <audio id="pop-sound" src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"></audio>
+
+    <script>
+        // --- PEGA TU URL AQUÍ ---
+        const API_URL = "https://script.google.com/macros/s/AKfycbxDpRglsXz9hY6irITNqje8bDoYJoFDlL7z57x51VA9uNMX4PxspuhNViG2q8kyhBeq/exec"; 
+        
+        let myUser = localStorage.getItem('chat_user');
+        let lastMessageCount = 0;
+
+        // Iniciar aplicación
+        window.onload = () => {
+            if (myUser) {
+                setupApp();
+            }
+        };
+
+        function setupApp() {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('display-name').innerText = myUser;
+            document.getElementById('my-avatar').innerText = myUser[0].toUpperCase();
+            loadMessages();
+            setInterval(loadMessages, 4000);
+        }
+
+        function saveUsername() {
+            const val = document.getElementById('username-input').value.trim();
+            if (val) {
+                localStorage.setItem('chat_user', val);
+                myUser = val;
+                setupApp();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('chat_user');
+            location.reload();
+        }
+
+        function addEmoji(emoji) {
+            document.getElementById('msg-input').value += emoji;
+        }
+
+        async function loadMessages() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                if (data.length === lastMessageCount) return;
+
+                if (lastMessageCount > 0 && data.length > lastMessageCount) {
+                    if (data[data.length - 1][1] !== myUser) document.getElementById('pop-sound').play();
+                }
+
+                lastMessageCount = data.length;
+                const container = document.getElementById('chat-container');
+                
+                let ultimaFecha = '';
+                let html = '';
+                
+                data.forEach(m => {
+                    const isMe = m[1] === myUser;
+                    const isImg = m[3] === "image";
+                    const color = isMe ? '#24A1DE' : '#673ab7';
+                    
+                    // Formatear fecha y hora
+                    const fecha = new Date(m[0]);
+                    const hoy = new Date();
+                    
+                    // Normalizar fechas a medianoche para comparar solo el día
+                    const fechaSolo = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+                    const hoySolo = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+                    const ayerSolo = new Date(hoySolo);
+                    ayerSolo.setDate(ayerSolo.getDate() - 1);
+                    
+                    const esHoy = fechaSolo.getTime() === hoySolo.getTime();
+                    const esAyer = fechaSolo.getTime() === ayerSolo.getTime();
+                    
+                    // Determinar etiqueta de fecha para separador
+                    let etiquetaFecha;
+                    if (esHoy) {
+                        etiquetaFecha = 'Hoy';
+                    } else if (esAyer) {
+                        etiquetaFecha = 'Ayer';
+                    } else {
+                        etiquetaFecha = fecha.toLocaleDateString('es-ES', { 
+                            weekday: 'long', 
+                            day: 'numeric', 
+                            month: 'long',
+                            year: fecha.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined
+                        });
+                        // Capitalizar primera letra
+                        etiquetaFecha = etiquetaFecha.charAt(0).toUpperCase() + etiquetaFecha.slice(1);
+                    }
+                    
+                    // Agregar separador de fecha si cambió el día
+                    if (etiquetaFecha !== ultimaFecha) {
+                        html += `<div class="date-separator"><span>${etiquetaFecha}</span></div>`;
+                        ultimaFecha = etiquetaFecha;
+                    }
+                    
+                    // Formatear hora en formato 12 horas
+                    let horas = fecha.getHours();
+                    const minutos = fecha.getMinutes().toString().padStart(2, '0');
+                    const ampm = horas >= 12 ? 'PM' : 'AM';
+                    horas = horas % 12;
+                    horas = horas ? horas : 12; // 0 se convierte en 12
+                    const horaTexto = `${horas}:${minutos} ${ampm}`;
+                    
+                    html += `
+                        <div class="msg-wrapper" style="${isMe ? 'flex-direction: row-reverse' : ''}">
+                            <div class="avatar" style="background: ${color}">${m[1][0].toUpperCase()}</div>
+                            <div class="message ${isMe ? 'sent' : 'received'}">
+                                <span class="user-name" style="color: ${color}">${isMe ? 'Tú' : m[1]}</span>
+                                ${isImg ? `<img src="${m[2]}" class="img-msg" onclick="window.open(this.src)">` : `<div>${m[2]}</div>`}
+                                <span class="time">${horaTexto}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+                container.scrollTop = container.scrollHeight;
+            } catch (e) { console.error("Error cargando..."); }
+        }
+
+        async function sendText() {
+            const input = document.getElementById('msg-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = "";
+            await postData({ user: myUser, message: msg, type: "text" });
+        }
+
+        async function sendImage(input) {
+            if (!input.files[0]) return;
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64 = e.target.result.split(',')[1];
+                await postData({ user: myUser, type: "image", fileName: file.name, mimeType: file.type, base64: base64 });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function postData(data) {
+            await fetch(API_URL, { 
+                method: 'POST', 
+                body: JSON.stringify(data) 
+            });
+            setTimeout(loadMessages, 1000);
+        }
+    </script>
+</body>
+</html>
